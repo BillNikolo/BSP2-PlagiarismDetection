@@ -6,8 +6,7 @@ filename ="C:/Users/vniko/PycharmProjects/BSP2-PlagiarismDetection/RandomCode.py
 with open(filename) as src_file:
     tree = ast.parse(src_file.read())
 
-"""v = Analyzer()
-v.visit(tree)"""
+"""Create a list to save the names of the function of the .py"""
 methodList = []
 
 class Analyzer(ast.NodeVisitor):
