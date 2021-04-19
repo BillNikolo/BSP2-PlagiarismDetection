@@ -1,4 +1,4 @@
-def arrayMultiply(array, c):
+def arrayMultiply(array):
     return [element*c for element in array]
 
 def arraySum(a, b):
