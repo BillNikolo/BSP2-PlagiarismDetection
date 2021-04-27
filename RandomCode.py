@@ -12,7 +12,7 @@ def intermediate(a, b, ratio):
 def gradient(a, b, steps):
     steps = [n/float(steps) for n in range(steps)]
 
-
+{"a" : 1, "b" : 2}
 #print arrayMultiply((1,2,3), 0.3)
 #print arraySum((1,2,3), (0.5, 0.5, 0.5))
 #print intermediate((1,2,3), (3,2,1), 0.5)

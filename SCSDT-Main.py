@@ -156,6 +156,7 @@ class Analyzer(ast.NodeVisitor):
     for arg in node.body:
       self.visit(arg)
     for orelse in node.orelse:
+      self.astToString += "el"
       self.visit(orelse)
 
   def visit_comprehension(self, node):
@@ -178,8 +179,12 @@ class Analyzer(ast.NodeVisitor):
     ast.NodeVisitor.generic_visit(self, node)
 
   def visit_Constant(self, node):
-    self.astToString += str(node.value)
-    ast.NodeVisitor.generic_visit(self, node)
+    if isinstance(node.value, str):
+      self.astToString += "'"
+      self.astToString += node.value
+      self.astToString += "'"
+    else:
+      self.astToString += str(node.value)
 
   def visit_Attribute(self, node):
     self.visit(node.value)
@@ -215,6 +220,25 @@ class Analyzer(ast.NodeVisitor):
     self.astToString += ":"
     self.visit(node.body)
     self.astToString += "\n"
+
+  def visit_Dict(self, node):
+    self.astToString += "{"
+    for i in range(len(node.keys)):
+      if i>0:
+        self.astToString += ","
+      self.visit(node.keys[i])
+      self.astToString += ":"
+      self.visit(node.values[i])
+    self.astToString += "}"
+
+  def visit_Continue(self, node):
+    self.astToString += "continue"
+
+  def visit_Break(self, node):
+    self.astToString += "break"
+
+  def visit_Global(self, node):
+    self.visit(node.names)
 
   def print_methodlist(self):
     print(self.methodList)
