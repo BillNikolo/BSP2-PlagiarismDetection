@@ -1,26 +1,15 @@
-import ast
-from prettiest_ast import ppast
+import ast, contextlib
+#from prettiest_ast import ppast
 
 filename = "SCSDT-Main.py"
 
 with open(filename) as src_file:
   tree = ast.parse(src_file.read())
 
+BINOP_STR = { ast.Add: '+', ast.Mult: '*', ast.Sub: '-', ast.Div: '/', ast.Mod: '%', ast.Pow: '**' }
 
 def binoptostring(op):
-  if isinstance(op, ast.Add):
-    return "+"
-  elif isinstance(op, ast.Mult):
-    return "*"
-  elif isinstance(op, ast.Sub):
-    return "-"
-  elif isinstance(op, ast.Div):
-    return "/"
-  elif isinstance(op, ast.Mod):
-    return "%"
-  elif isinstance(op, ast.Pow):
-    return "**"
-
+  return BINOP_STR[type(op)]
 
 def unaroptostring(op):
   if isinstance(op, ast.Invert):
@@ -61,7 +50,7 @@ class Analyzer(ast.NodeVisitor):
   def __init__(self):
     self.astToString = ""
     self.lineno = 0
-    self.ident = ""
+    self.indentation = ""
 
   def generic_Visit(self, node):
     """if self.lineno != node.lineno:
@@ -71,46 +60,46 @@ class Analyzer(ast.NodeVisitor):
     ast.NodeVisitor.generic_visit(self, node)
 
   def visit_ClassDef(self, node):
-    self.changeLine()
-    self.toIndent()
-    self.astToString += node.name + "("
-    self.visit(node.bases[0])
-    for el in node.bases:
-      self.astToString += ","
-      self.visit(el)
-    self.astToString += ") :"
-    self.changeLine()
-    self.indentation()
+    self.add_text(node.name + "(")
+
+    with self.no_indent():
+      self.visit(node.bases[0])
+      for el in node.bases:
+        self.add_text(', ')
+        self.visit(el)
+
+      self.add_text("):")
+    self.next_line()
+
+    self.indent()
     for el in node.body:
-      self.toIndent()
       self.visit(el)
-    self.deindentation()
-    self.changeLine()
+    self.dedent()
+    self.next_line()
+    self.next_line()
 
   def visit_FunctionDef(self, node):
-    self.changeLine()
-    self.toIndent()
-    self.astToString += "def " + node.name
-    self.visit(node.args)
-    self.astToString += ":"
-    self.indentation()
-    self.changeLine()
-    if len(node.body) < 1:
-     self.changeLine()
-    else:
-      for element in node.body:
-        self.toIndent()
-        self.visit(element)
-        self.changeLine()
-    self.deindentation()
-    self.changeLine()
+    self.add_text("def " + node.name)
+    with self.no_indent():
+      self.visit(node.args)
 
+    self.add_text(":")
+    self.next_line()
+    self.indent()
+    for element in node.body:
+      self.visit(element)
+      self.next_line()
+    self.dedent()
+    self.next_line()
+    self.next_line()
 
   def visit_Assign(self, node):
     for target in node.targets:
       self.visit(target)
-      self.astToString += "= "
-    self.visit(node.value)
+      self.add_text(" = ")
+    with self.no_indent():
+      self.visit(node.value)
+
 
   def visit_AugAssign(self, node):
     self.visit(node.target)
@@ -118,7 +107,7 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.value)
 
   def visit_Name(self, node):
-    self.astToString += node.id
+    self.add_text(node.id)
 
   def visit_Num(self, node):
     self.astToString += str(node.n) + " "
@@ -172,12 +161,12 @@ class Analyzer(ast.NodeVisitor):
     self.astToString += " in "
     self.visit(node.iter)
     self.astToString += ":"
-    self.changeLine()
+    self.next_line()
     self.indentation()
     for arg in node.body:
       self.toIndent()
       self.visit(arg)
-      self.changeLine()
+      self.next_line()
     for orelse in node.orelse:
       self.visit(orelse)
     self.deindentation()
@@ -193,17 +182,17 @@ class Analyzer(ast.NodeVisitor):
   def visit_If(self, node):
     self.astToString += "if "
     self.visit(node.test)
-    self.changeLine()
+    self.next_line()
     self.indentation()
     for arg in node.body:
       self.toIndent()
       self.visit(arg)
-      self.changeLine()
+      self.next_line()
     self.deindentation()
     for orelse in node.orelse:
       self.toIndent()
       self.astToString += "else: "
-      self.changeLine()
+      self.next_line()
       self.toIndent()
       self.visit(orelse)
 
@@ -266,7 +255,7 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.args)
     self.astToString += ":"
     self.visit(node.body)
-    self.changeLine()
+    self.next_line()
 
   def visit_Dict(self, node):
     self.astToString += "{"
@@ -287,23 +276,33 @@ class Analyzer(ast.NodeVisitor):
   def visit_Global(self, node):
     self.visit(node.names)
 
-  def indentation(self):
-    self.ident = self.ident + "  "
+  def indent(self):
+    self.indentation = self.indentation + "  "
 
-  def deindentation(self):
-    self.ident = (len(self.ident)-2)*" "
+  def dedent(self):
+    self.indentation = (len(self.indentation)-2) * " "
+
+  def add_text(self, text):
+    self.astToString += self.indentation + text
 
   def toIndent(self):
-    self.astToString += self.ident
+    self.astToString += self.indentation
 
-  def changeLine(self):
+  def next_line(self):
     self.astToString += "\n"
 
-  def print_astToString(self):
-    print(self.astToString)
+  @contextlib.contextmanager
+  def no_indent(self):
+      i = self.indentation
+      self.indentation = ''
+      yield
+      self.indentation = i
+
+  def __str__(self):
+    return self.astToString
 
 
-ppast(tree)
+#ppast(tree)
 v = Analyzer()
 v.visit(tree)
-v.print_astToString()
+print(v)
