@@ -1,10 +1,11 @@
 import ast
 from prettiest_ast import ppast
 
-filename = "RandomCode.py"
+filename = "SCSDT-Main.py"
 
 with open(filename) as src_file:
   tree = ast.parse(src_file.read())
+
 
 def binoptostring(op):
   if isinstance(op, ast.Add):
@@ -20,6 +21,7 @@ def binoptostring(op):
   elif isinstance(op, ast.Pow):
     return "**"
 
+
 def unaroptostring(op):
   if isinstance(op, ast.Invert):
     return "~"
@@ -29,6 +31,7 @@ def unaroptostring(op):
     return "+"
   elif isinstance(op, ast.USub):
     return "-"
+
 
 def cmpopoptostring(op):
   if isinstance(op, ast.Eq):
@@ -52,12 +55,13 @@ def cmpopoptostring(op):
   elif isinstance(op, ast.NotIn):
     return "not in"
 
+
 class Analyzer(ast.NodeVisitor):
 
   def __init__(self):
-    self.methodList = []
     self.astToString = ""
     self.lineno = 0
+    self.ident = ""
 
   def generic_Visit(self, node):
     """if self.lineno != node.lineno:
@@ -67,14 +71,39 @@ class Analyzer(ast.NodeVisitor):
     ast.NodeVisitor.generic_visit(self, node)
 
   def visit_ClassDef(self, node):
-    self.astToString += "class " + node.name + " "
-    self.generic_Visit(node)
+    self.changeLine()
+    self.toIndent()
+    self.astToString += node.name + "("
+    self.visit(node.bases[0])
+    for el in node.bases:
+      self.astToString += ","
+      self.visit(el)
+    self.astToString += ") :"
+    self.changeLine()
+    self.indentation()
+    for el in node.body:
+      self.toIndent()
+      self.visit(el)
+    self.deindentation()
+    self.changeLine()
 
   def visit_FunctionDef(self, node):
-    self.methodList.append(node.name)
+    self.changeLine()
+    self.toIndent()
     self.astToString += "def " + node.name
-    self.generic_Visit(node)
-    self.astToString += "\n"
+    self.visit(node.args)
+    self.astToString += ":"
+    self.indentation()
+    self.changeLine()
+    if len(node.body) < 1:
+     self.changeLine()
+    else:
+      for element in node.body:
+        self.toIndent()
+        self.visit(element)
+        self.changeLine()
+    self.deindentation()
+    self.changeLine()
 
 
   def visit_Assign(self, node):
@@ -83,8 +112,13 @@ class Analyzer(ast.NodeVisitor):
       self.astToString += "= "
     self.visit(node.value)
 
+  def visit_AugAssign(self, node):
+    self.visit(node.target)
+    self.astToString += " " + binoptostring(node.op) + "= "
+    self.visit(node.value)
+
   def visit_Name(self, node):
-    self.astToString += node.id + " "
+    self.astToString += node.id
 
   def visit_Num(self, node):
     self.astToString += str(node.n) + " "
@@ -113,7 +147,7 @@ class Analyzer(ast.NodeVisitor):
     self.astToString += "("
     self.visit(node.elts[0])
     for con in node.elts[1:]:
-      self.astToString +=","
+      self.astToString += ","
       self.visit(con)
     self.astToString += ") "
 
@@ -133,14 +167,20 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.right)
 
   def visit_For(self, node):
-    self.astToString += "for( "
+    self.astToString += "for "
     self.visit(node.target)
-    self.astToString += "in "
+    self.astToString += " in "
     self.visit(node.iter)
+    self.astToString += ":"
+    self.changeLine()
+    self.indentation()
     for arg in node.body:
+      self.toIndent()
       self.visit(arg)
+      self.changeLine()
     for orelse in node.orelse:
       self.visit(orelse)
+    self.deindentation()
 
   def visit_While(self, node):
     self.astToString += "while "
@@ -153,13 +193,22 @@ class Analyzer(ast.NodeVisitor):
   def visit_If(self, node):
     self.astToString += "if "
     self.visit(node.test)
+    self.changeLine()
+    self.indentation()
     for arg in node.body:
+      self.toIndent()
       self.visit(arg)
+      self.changeLine()
+    self.deindentation()
     for orelse in node.orelse:
-      self.astToString += "el"
+      self.toIndent()
+      self.astToString += "else: "
+      self.changeLine()
+      self.toIndent()
       self.visit(orelse)
 
   def visit_comprehension(self, node):
+    self.toIndent()
     self.astToString += "for "
     self.visit(node.target)
     self.astToString += "in "
@@ -176,7 +225,6 @@ class Analyzer(ast.NodeVisitor):
 
   def visit_arg(self, node):
     self.astToString += node.arg
-    ast.NodeVisitor.generic_visit(self, node)
 
   def visit_Constant(self, node):
     if isinstance(node.value, str):
@@ -188,20 +236,19 @@ class Analyzer(ast.NodeVisitor):
 
   def visit_Attribute(self, node):
     self.visit(node.value)
-    ast.NodeVisitor.generic_visit(self, node)
+    self.astToString += "." + node.attr
 
   def visit_Starred(self, node):
     self.astToString += str(node.value)
-    ast.NodeVisitor.generic_visit(self, node)
 
   def visit_Compare(self, node):
-    self.generic_Visit(node.left)
-    self.astToString += " " + cmpopoptostring(node.op) + " "
-    self.generic_Visit(node.right)
+    self.visit(node.left)
+    for i in range(len(node.ops)):
+      self.astToString += " " + cmpopoptostring(node.ops[i]) + " "
+      self.visit(node.comparators[i])
 
   def visit_NamedExpr(self, node):
     self.astToString += str(node.target)
-    ast.NodeVisitor.generic_visit(self, node)
 
   def visit_Expr(self, node):
     self.visit(node.value)
@@ -219,12 +266,12 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.args)
     self.astToString += ":"
     self.visit(node.body)
-    self.astToString += "\n"
+    self.changeLine()
 
   def visit_Dict(self, node):
     self.astToString += "{"
     for i in range(len(node.keys)):
-      if i>0:
+      if i > 0:
         self.astToString += ","
       self.visit(node.keys[i])
       self.astToString += ":"
@@ -240,8 +287,17 @@ class Analyzer(ast.NodeVisitor):
   def visit_Global(self, node):
     self.visit(node.names)
 
-  def print_methodlist(self):
-    print(self.methodList)
+  def indentation(self):
+    self.ident = self.ident + "  "
+
+  def deindentation(self):
+    self.ident = (len(self.ident)-2)*" "
+
+  def toIndent(self):
+    self.astToString += self.ident
+
+  def changeLine(self):
+    self.astToString += "\n"
 
   def print_astToString(self):
     print(self.astToString)
@@ -250,5 +306,4 @@ class Analyzer(ast.NodeVisitor):
 ppast(tree)
 v = Analyzer()
 v.visit(tree)
-v.print_methodlist()
 v.print_astToString()
