@@ -1,42 +1,14 @@
-import ast, contextlib
+import ast, contextlib, glob
 from os import listdir
 from os.path import isfile, join
-import numpy as np
-import pandas as pd
-import difflib
-
 from prettiest_ast import ppast
 
-BINOP_STR = {ast.Add: '+', ast.Mult: '*', ast.Sub: '-', ast.Div: '/', ast.Mod: '%', ast.Pow: '**'}
+
+BINOP_STR = {ast.Add: '+', ast.Mult: '*', ast.Sub: '-', ast.Div: '/', ast.Mod: '%', ast.Pow: '**' }
 UNA_OP = {ast.Invert: '~', ast.Not: 'not', ast.UAdd: "+", ast.USub: "-"}
-CMP_OP = {ast.Eq: "==", ast.NotEq: "!=", ast.Lt: "<", ast.LtE: "<=", ast.Gt: ">", ast.GtE: ">=", ast.Is: "is",
-          ast.IsNot: "is not",
+CMP_OP = {ast.Eq: "==", ast.NotEq: "!=", ast.Lt: "<", ast.LtE: "<=", ast.Gt: ">", ast.GtE: ">=", ast.Is: "is", ast.IsNot: "is not",
           ast.In: "in", ast.NotIn: "not in"}
 BOOL_OP = {ast.And: "and", ast.Or: "or"}
-
-
-def py_compare(filenames):
-  if len(filenames) > 1:
-    transform = Transform()
-    transformed_List = []
-    for file in filenames:
-      with open("ToBeTested/" + file) as src_file:
-        tree = (ast.parse(src_file.read()))
-        transform.visit(tree)
-      transformed_List.append(str(transform))
-    i = 0
-    matrix = []
-    for i in range(len(transformed_List)):
-      j = 0
-      temp_List = []
-      for j in range(len(transformed_List)):
-        temp = difflib.SequenceMatcher(lambda x: x == " ", transformed_List[i], transformed_List[j])
-        temp_List.append(int(100 * round(temp.ratio(), 2)))
-      matrix.append(temp_List)
-    df = pd.DataFrame(matrix, columns=filenames, index=filenames)
-    print(df)
-  else:
-    print("Please insert more than one Py program in the ToBeTested folder")
 
 
 def booloptostring(op):
@@ -55,6 +27,16 @@ def cmpopoptostring(op):
   return CMP_OP[type(op)]
 
 
+def clown(x):
+  if x==1 and x < 5 and x > -1 or x == 2:
+    print(1)
+  elif x==2:
+    print(2)
+  else:
+    for i in range(10):
+      x +=1
+
+
 class Analyzer(ast.NodeVisitor):
 
   def __init__(self):
@@ -67,17 +49,17 @@ class Analyzer(ast.NodeVisitor):
     ast.NodeVisitor.generic_visit(self, node)
 
   def visit_ClassDef(self, node):
-    self.next_line()
-    with self.new_line():
-      self.add_text("class " + node.name + "(")
-      with self.no_indent():
-        self.visit(node.bases[0])
-        self.add_text(")")
-    self.next_line()
-    self.indent()
-    for el in node.body:
-      self.visit(el)
-    self.dedent()
+      self.next_line()
+      with self.new_line():
+        self.add_text("class " + node.name + "(")
+        with self.no_indent():
+          self.visit(node.bases[0])
+          self.add_text(")")
+      self.next_line()
+      self.indent()
+      for el in node.body:
+        self.visit(el)
+      self.dedent()
 
   def visit_FunctionDef(self, node):
     with self.new_line():
@@ -149,9 +131,8 @@ class Analyzer(ast.NodeVisitor):
 
   def visit_List(self, node):
     self.add_text("[")
-    if len(node.elts) > 0:
-      with self.no_indent():
-        self.visit(node)
+    with self.no_indent():
+      self.visit(node)
     self.add_text("]")
 
   def visit_ListComp(self, node):
@@ -217,10 +198,10 @@ class Analyzer(ast.NodeVisitor):
 
   def visit_comprehension(self, node):
     with self.new_line():
-      self.add_text(" for ")
+      self.add_text("for ")
       with self.no_indent():
         self.visit(node.target)
-        self.add_text(" in ")
+        self.add_text("in ")
         self.visit(node.iter)
 
   def visit_arguments(self, node):
@@ -271,7 +252,7 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.value)
 
   def visit_keyword(self, node):
-    self.add_text(node.arg)
+    self.add(node.arg)
     with self.no_indent():
       self.add_text(" = ")
       self.visit(node.value)
@@ -286,7 +267,7 @@ class Analyzer(ast.NodeVisitor):
     with self.new_line():
       self.visit(node.args)
       with self.no_indent():
-        self.add_text(":")
+        self.add(":")
         self.visit(node.body)
         self.next_line()
 
@@ -328,7 +309,7 @@ class Analyzer(ast.NodeVisitor):
     self.visit(node.names)
 
   def visit_Yield(self, node):
-    self.add_text("yield")
+      self.add_text("yield")
 
   def visit_With(self, node):
     with self.new_line():
@@ -409,10 +390,13 @@ class Analyzer(ast.NodeVisitor):
     self.indentation = self.indentation + "  "
 
   def dedent(self):
-    self.indentation = (len(self.indentation) - 2) * " "
+    self.indentation = (len(self.indentation)-2) * " "
 
   def add_text(self, text):
     self.astToString += self.indentation + text
+
+  """def toIndent(self):
+        self.astToString += self.indentation"""
 
   def next_line(self):
     self.astToString += "\n"
@@ -445,7 +429,7 @@ class Transform(Analyzer):
 
   def visit_FunctionDef(self, node):
     with self.new_line():
-      self.add_text("def nameDef")
+      self.add_text("def namedef")
       with self.no_indent():
         self.visit(node.args)
         self.add_text(":")
@@ -458,10 +442,7 @@ class Transform(Analyzer):
 
   def visit_Call(self, node):
     with self.new_line():
-      if isinstance(node.func, ast.Attribute):
-        self.visit(node.func)
-      else:
-        self.add_text("callFunc")
+      self.add_text("callFunc")
       with self.no_indent():
         self.add_text("(")
         if len(node.args) > 0:
@@ -476,22 +457,16 @@ class Transform(Analyzer):
               self.add_text(", ")
               self.visit(keyword)
         self.add_text(")")
-
-  def visit_Attribute(self, node):
-    with self.new_line():
-      self.visit(node.value)
-      with self.no_indent():
-        self.add_text(".attr")
-
-
-
-MY_PATH = "ToBeTested"
-PY_FILES = [f for f in listdir(MY_PATH) if isfile(join(MY_PATH, f))]
-print(PY_FILES)
-py_compare(PY_FILES)
-
 #ppast(tree)
-#v = Analyzer()
-#s = Transform()
-#s.visit(tree)
-#print(s)
+
+filename = "SCSDT-Main.py"
+onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+
+with open(filename) as src_file:
+  tree = ast.parse(src_file.read())
+
+v = Analyzer()
+print(files)
+s = Transform()
+s.visit(tree)
+print(s)
