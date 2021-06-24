@@ -17,9 +17,9 @@ BOOL_OP = {ast.And: "and", ast.Or: "or"}
 
 def py_compare(filenames):
   if len(filenames) > 1:
-    transform = Transform()
     transformed_List = []
     for file in filenames:
+      transform = Transform()
       with open("ToBeTested/" + file) as src_file:
         tree = (ast.parse(src_file.read()))
         transform.visit(tree)
@@ -30,8 +30,8 @@ def py_compare(filenames):
       j = 0
       temp_List = []
       for j in range(len(transformed_List)):
-        temp = difflib.SequenceMatcher(lambda x: x == " ", transformed_List[i], transformed_List[j])
-        temp_List.append(int(100 * round(temp.ratio(), 2)))
+        temp = difflib.SequenceMatcher(None, transformed_List[i], transformed_List[j], False)
+        temp_List.append(100 * round(temp.ratio(), 4))
       matrix.append(temp_List)
     df = pd.DataFrame(matrix, columns=filenames, index=filenames)
     print(df)
@@ -459,9 +459,10 @@ class Transform(Analyzer):
   def visit_Call(self, node):
     with self.new_line():
       if isinstance(node.func, ast.Attribute):
+        node.func.attr = "callFunc"
         self.visit(node.func)
       else:
-        self.add_text("callFunc")
+       self.add_text("callFunc")
       with self.no_indent():
         self.add_text("(")
         if len(node.args) > 0:
@@ -477,11 +478,6 @@ class Transform(Analyzer):
               self.visit(keyword)
         self.add_text(")")
 
-  def visit_Attribute(self, node):
-    with self.new_line():
-      self.visit(node.value)
-      with self.no_indent():
-        self.add_text(".attr")
 
 
 
@@ -489,9 +485,11 @@ MY_PATH = "ToBeTested"
 PY_FILES = [f for f in listdir(MY_PATH) if isfile(join(MY_PATH, f))]
 print(PY_FILES)
 py_compare(PY_FILES)
+with open("ToBeTested/SCSDT-Main.py") as src_file:
+  tree = (ast.parse(src_file.read()))
 
-#ppast(tree)
+ppast(tree)
 #v = Analyzer()
-#s = Transform()
-#s.visit(tree)
-#print(s)
+s = Transform()
+s.visit(tree)
+print(s)
